@@ -1,0 +1,15 @@
+<package format="2">
+<name>mrmf</name>
+<version>0.1.0</version>
+<description>Metapackage for mrmf</description>
+<maintainer email="arbogastaw@gmail.com">Alex Arbogast</maintainer>
+<license>BSD</license>
+<author>Alex Arbogast</author>
+<buildtool_depend>catkin</buildtool_depend>
+
+<exec_depend>mrmf_rviz</exec_depend>
+
+<export>
+    <metapackage/>
+</export>
+</package>

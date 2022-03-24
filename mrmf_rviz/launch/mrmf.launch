@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Launch visualization -->
+    <node pkg="rviz" type="rviz" name="mrmf"
+         args="-d $(find mrmf_rviz)/rviz/mrmf.rviz" output="screen"/>
+</launch>

@@ -1,0 +1,18 @@
+<package format="2">
+    <name>mrmf_ros</name>
+    <version>0.0.0</version>
+    <description>The mrmf_ros package</description>
+
+    <maintainer email="arbogastaw@gmail.com">Alex Arbogast</maintainer>
+    <license>BSD</license>
+    <author email="arbogastaw@gmail.com">Alex Arbogast</author>
+    
+    <buildtool_depend>catkin</buildtool_depend>
+    <depend>moveit_core</depend>
+    <depend>moveit_ros_planning</depend>
+    <depend>roscpp</depend>
+
+    <export>
+     <!--  Other tools can request additional information be placed here  -->
+    </export>
+</package>
