@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
     moveit_core
     moveit_ros_planning
     moveit_ros_planning_interface
+    bio_ik
 )
 catkin_package(
     INCLUDE_DIRS include
@@ -13,32 +14,13 @@ catkin_package(
         moveit_core
         moveit_ros_planning
         moveit_ros_planning_interface
-#   DEPENDS system_lib
+        bio_ik
 )
 
-include_directories(
+include_directories( 
     include
     ${catkin_INCLUDE_DIRS}
 )
 
-#add_library(${PROJECT_NAME} 
-#    src/core/gcode.cpp
-#    src/core/toolpath.cpp
-#    src/flavor_impl/marlin_gcode.cpp)
-#target_link_libraries(${PROJECT_NAME} PUBLIC
-#    Eigen3::Eigen
-#    ${catkin_LIBRARIES})
-#target_include_directories(${PROJECT_NAME} PUBLIC
-#    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-#    "$<INSTALL_INTERFACE:include>")
-#target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
-#    ${EIGEN3_INCLUDE_DIRS}
-#    ${catkin_INCLUDE_DIRS})
-#
-#add_executable(${PROJECT_NAME}_test src/test.cpp)
-#target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME} ${catkin_LIBRARIES})
-#target_include_directories(${PROJECT_NAME}_test PRIVATE
-#    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-#    "$<INSTALL_INTERFACE:include>")
-#target_include_directories(${PROJECT_NAME}_test SYSTEM PRIVATE
-#    ${catkin_INCLUDE_DIRS})
+add_library(${PROJECT_NAME} src/goal_types.cpp)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${catkin_LIBRARIES})

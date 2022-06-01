@@ -1,0 +1,9 @@
+<library path="libmrmf_capability">
+
+<class name="mrmf_capability/MoveGroupMrmfTestService" type="mrmf_capability::MoveGroupMrmfTestService" base_class_type="move_group::MoveGroupCapability">
+    <description>
+        Test capability for mrmf
+    </description>
+</class>
+
+</library>
