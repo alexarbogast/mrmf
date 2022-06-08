@@ -6,6 +6,7 @@
 namespace mrmf_capability
 {
 static const std::string MRMF_TEST_SERVICE_NAME = "mrmf_test";
+static const std::string SYNCHRONOUS_TRAJECTORY_SERVICE_NAME = "synchronous_trajectory_service";
 
 } // namespace mrmf_capability
 

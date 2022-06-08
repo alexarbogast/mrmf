@@ -40,6 +40,9 @@ public:
 
         test_service_ = 
             node_handle_.serviceClient<moveit_msgs::GetCartesianPath>(mrmf_capability::MRMF_TEST_SERVICE_NAME);
+
+        synchronous_trajectory_service_ =
+            node_handle_.serviceClient<moveit_msgs::GetCartesianPath>(mrmf_capability::SYNCHRONOUS_TRAJECTORY_SERVICE_NAME);
     }
 
     ~MrmfInterfaceImpl() = default;
@@ -75,6 +78,7 @@ private:
 
     // ROS communication
     ros::ServiceClient test_service_;
+    ros::ServiceClient synchronous_trajectory_service_;
 };
 
 MrmfInterface::MrmfInterface(const std::string& group)
