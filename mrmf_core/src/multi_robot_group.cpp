@@ -44,8 +44,12 @@ bool MultiRobotGroup::planSynchronousTrajectory(CompositeTrajectory& comp_traj,
 
         for (const auto& traj : comp_traj)
         {
-            context.current_robot_ = getRobot(traj->id);
+            auto current_robot = getRobot(traj->id);
+
+            context.current_robot_ = current_robot;
             traj->points[i]->describe(context);
+
+            current_robot->describePersistantConstraints(context);
         }
         addGlobalConstraints(context);
 
@@ -78,7 +82,6 @@ bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, moveit::c
 
 void MultiRobotGroup::addGlobalConstraints(KinematicsQueryContext& context)
 {
-    // TODO: loop through robots and add constraints
     auto* minimal_displacement = new bio_ik::MinimalDisplacementGoal();
     context.ik_options.goals.emplace_back(minimal_displacement);
 

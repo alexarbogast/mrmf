@@ -1,8 +1,11 @@
 #ifndef MRMF_CORE_ROBOT_H
 #define MRMF_CORE_ROBOT_H
 
-#include <mrmf_core/unique_id.h>
 #include <string>
+#include <vector>
+
+#include <mrmf_core/constraint.h>
+#include <mrmf_core/unique_id.h>
 
 namespace mrmf_core
 {
@@ -13,10 +16,7 @@ public:
 
     Robot(const std::string& group, 
           const std::string& tip_frame,
-          const Robot::RobotType type = Robot::RobotType::MANIPULATOR)
-        : group_(group), tip_frame_(tip_frame), type_(type), id_(RobotID::make_id())
-    {
-    }
+          const Robot::RobotType type = Robot::RobotType::MANIPULATOR);
 
     inline const Robot::RobotType& getType() const { return type_; }
     inline void setType(const Robot::RobotType& type) { type_ = type; }
@@ -26,11 +26,15 @@ public:
 
     const RobotID& getID() const { return id_; }
 
+    void addPersistentConstraint(const ConstraintPtr& constraint);
+    void describePersistentConstraints(KinematicsQueryContext& context) const;
+
 protected:
     std::string group_;
     std::string tip_frame_;
     Robot::RobotType type_ = RobotType::MANIPULATOR;
 
+    std::vector<ConstraintPtr> constraints_;
     RobotID id_;
 };
 

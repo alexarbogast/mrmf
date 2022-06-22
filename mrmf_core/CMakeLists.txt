@@ -28,6 +28,8 @@ include_directories(
 add_library(${PROJECT_NAME} 
     src/goal_types.cpp
     src/unique_id.cpp
+    src/robot.cpp
+    src/constraint.cpp
     src/multi_robot_group.cpp
 )
 
