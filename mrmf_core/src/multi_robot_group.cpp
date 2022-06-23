@@ -49,7 +49,7 @@ bool MultiRobotGroup::planSynchronousTrajectory(CompositeTrajectory& comp_traj,
             context.current_robot_ = current_robot;
             traj->points[i]->describe(context);
 
-            current_robot->describePersistantConstraints(context);
+            current_robot->describePersistentConstraints(context);
         }
         addGlobalConstraints(context);
 
