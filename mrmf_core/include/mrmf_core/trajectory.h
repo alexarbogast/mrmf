@@ -13,8 +13,25 @@ public:
 
     inline size_t size() const { return waypoints_.size(); }
 
-    void addSuffixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_back(pt); }
-    void addSuffixWaypoint(CartesianTrajectoryPtPtr&& pt) { waypoints_.emplace_back(pt); }
+    std::deque<CartesianTrajectoryPtPtr>::iterator begin() { return waypoints_.begin(); }
+    std::deque<CartesianTrajectoryPtPtr>::iterator end() { return waypoints_.end(); }
+    std::deque<CartesianTrajectoryPtPtr>::const_iterator cbegin() const { return waypoints_.begin(); }
+    std::deque<CartesianTrajectoryPtPtr>::const_iterator cend() const { return waypoints_.end(); }
+
+    inline void addPrefixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_front(pt); }
+    inline void addSuffixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_back(pt); }
+    void insertWayPoint(size_t index, const CartesianTrajectoryPtPtr& pt);
+
+    // for now assume 0 < i < waypoints_.size()
+    double getWaypointDistanceFromPrevious(size_t index) const;
+    double getWaypointDurationFromPrevious(size_t index) const;
+    double getWaypointDistanceFromStart(size_t index) const;
+    double getWaypointDurationFromStart(size_t index) const;
+
+    std::vector<double> getWaypointDistancesFromPrevious() const;
+    std::vector<double> getWaypointDistancesFromStart() const;
+    std::vector<double> getWaypointDurationsFromPrevious() const;
+    std::vector<double> getWaypointDurationsFromStart() const;
 
     std::string toString() const;
     
@@ -41,7 +58,6 @@ public:
 
     inline size_t size() const { return trajectories_.size(); } 
     inline CartesianTrajectoryPtr& operator[] (size_t pos) { return trajectories_[pos]; }
-    //inline CartesianTrajectoryConstPtr& operator[] (size_t pos) const { return trajectories_[pos]; }
 
     std::vector<CartesianTrajectoryPtr>::iterator begin() { return trajectories_.begin(); }
     std::vector<CartesianTrajectoryPtr>::iterator end() { return trajectories_.end(); }
