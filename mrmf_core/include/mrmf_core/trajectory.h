@@ -1,37 +1,37 @@
 #ifndef MRMF_CORE_TRAJECTORY_H
+#define MRMF_CORE_TRAJECTORY_H
 
 #include <mrmf_core/trajectory_pt.h>
-#include <mrmf_core/unique_id.h>
-#include <vector>
-#include <memory>
-#include <string>
-#include <algorithm>
 
 namespace mrmf_core
 {
-struct RobotTrajectory
+MRMF_CLASS_FORWARD(CartesianTrajectory)
+class CartesianTrajectory
 {
-    RobotID id;
-    std::vector<TrajectoryPtPtr> points;
+public:
+    CartesianTrajectory(const RobotID& robot, double velocity, const RobotID& positioner = RobotID::make_nil());
+
+    inline size_t size() const { return waypoints_.size(); }
+
+    void addSuffixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_back(pt); }
+    void addSuffixWaypoint(CartesianTrajectoryPtPtr&& pt) { waypoints_.emplace_back(pt); }
+
+    std::string toString() const;
     
-    RobotTrajectory() = default;
-
-    RobotTrajectory(const RobotID& rid)
-    : id(rid)
-    {}
-
-    inline size_t size() const { return points.size(); }
-
-    void addTrajectoryPt(const TrajectoryPtPtr& pt) { points.push_back(pt); }
-    void addTrajectoryPt(TrajectoryPtPtr&& pt) { points.emplace_back(pt); }
-
-    static std::shared_ptr<RobotTrajectory> makeTrajectory(const RobotID& id)
+    static std::shared_ptr<CartesianTrajectory> makeTrajectory(const RobotID& robot, 
+                                                               double velocity,
+                                                               const RobotID& positioner = RobotID::make_nil())
     {
-        return std::make_shared<RobotTrajectory>(id);
+        return std::make_shared<CartesianTrajectory>(robot, velocity, positioner);
     }
+
+private:
+    std::deque<CartesianTrajectoryPtPtr> waypoints_;
+    double velocity_;
+
+    RobotID robot_;
+    RobotID positioner_; // positioner id for coordinated movements
 };
-typedef std::shared_ptr<RobotTrajectory> RobotTrajectoryPtr;
-typedef const std::shared_ptr<RobotTrajectory> RobotTrajectoryConstPtr;
 
 
 class CompositeTrajectory
@@ -39,41 +39,23 @@ class CompositeTrajectory
 public: 
     CompositeTrajectory() = default;
 
-    inline size_t size() const { return path_.size(); } 
-    inline RobotTrajectoryPtr& operator[] (size_t pos) { return path_[pos]; }
-    inline RobotTrajectoryConstPtr& operator[] (size_t pos) const { return path_[pos]; }
+    inline size_t size() const { return trajectories_.size(); } 
+    inline CartesianTrajectoryPtr& operator[] (size_t pos) { return trajectories_[pos]; }
+    //inline CartesianTrajectoryConstPtr& operator[] (size_t pos) const { return trajectories_[pos]; }
 
-    std::vector<RobotTrajectoryPtr>::iterator begin() { return path_.begin(); }
-    std::vector<RobotTrajectoryPtr>::iterator end() { return path_.end(); }
-    std::vector<RobotTrajectoryPtr>::const_iterator cbegin() const { return path_.begin(); }
-    std::vector<RobotTrajectoryPtr>::const_iterator cend() const { return path_.end(); }
+    std::vector<CartesianTrajectoryPtr>::iterator begin() { return trajectories_.begin(); }
+    std::vector<CartesianTrajectoryPtr>::iterator end() { return trajectories_.end(); }
+    std::vector<CartesianTrajectoryPtr>::const_iterator cbegin() const { return trajectories_.begin(); }
+    std::vector<CartesianTrajectoryPtr>::const_iterator cend() const { return trajectories_.end(); }
 
-    void addTrajectory(const RobotTrajectoryPtr x) { path_.push_back(x); }
-    void addTrajectory(RobotTrajectoryPtr&& x) { path_.emplace_back(x); }
+    void addTrajectory(const CartesianTrajectoryPtr x) { trajectories_.push_back(x); }
+    void addTrajectory(CartesianTrajectoryPtr&& x) { trajectories_.emplace_back(x); }
 
-    bool equalSizes() const
-    {
-        return std::all_of(cbegin(), cend(),
-            [this] (const RobotTrajectoryPtr& x) { return x->size() == path_.front()->size(); });
-    }
-
-    size_t getLongestDimension() const
-    {
-        auto it = std::max_element(cbegin(), cend(), 
-            [] (const RobotTrajectoryPtr& a, const RobotTrajectoryPtr& b) { return a->size() < b->size(); });
-        return (*it)->size();
-    }
-
-    size_t getShortestDimension() const
-    {
-        auto it = std::min_element(cbegin(), cend(), 
-            [] (const RobotTrajectoryPtr& a, const RobotTrajectoryPtr& b) { return a->size() < b->size(); });
-        return (*it)->size();
-    }
+    void synchronizeTrajectories() const;
 
 private:
 
-    std::vector<RobotTrajectoryPtr> path_;
+    std::vector<CartesianTrajectoryPtr> trajectories_;
 };
 
 } // namespace mrmf_core

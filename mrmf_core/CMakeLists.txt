@@ -31,6 +31,8 @@ add_library(${PROJECT_NAME}
     src/robot.cpp
     src/constraint.cpp
     src/multi_robot_group.cpp
+    src/trajectory_pt.cpp
+    src/trajectory.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Eigen3::Eigen ${catkin_LIBRARIES})

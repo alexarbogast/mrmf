@@ -11,7 +11,7 @@ struct KinematicsQueryContext
     KinematicsQueryContext() = default;
 
     bio_ik::BioIKKinematicsQueryOptions ik_options;
-    RobotPtr current_robot_;
+    RobotPtr current_robot;
 };
 
 } // namespace mrmf_core

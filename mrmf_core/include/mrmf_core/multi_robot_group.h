@@ -25,7 +25,16 @@ public:
     bool planSynchronousTrajectory(CompositeTrajectory& traj, 
                                    robot_trajectory::RobotTrajectory& output_traj,
                                    moveit::core::RobotState& seed_state);
+
+    bool planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
+                                  robot_trajectory::RobotTrajectory& output_traj,
+                                  moveit::core::RobotState& start_state);
+
     bool kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state);
+
+    // test
+    void setCoordinated(const std::vector<RobotID>& robots); 
+    void clearCoordinated() { coordinated_robots_.clear(); }
 
 private:
     void addGlobalConstraints(KinematicsQueryContext& context);
@@ -37,6 +46,8 @@ private:
     std::unordered_map<uint64_t, RobotPtr> robots_;
     moveit::core::RobotModelConstPtr robot_model_;
     const moveit::core::JointModelGroup* joint_model_group_;
+    
+    std::vector<RobotID> coordinated_robots_;
 };
 
 } // namespace mrmf_core

@@ -14,7 +14,13 @@ RobotID MultiRobotGroup::addRobot(const std::string& group,
                                   const std::string& tip_frame,
                                   const Robot::RobotType type)
 {
-    RobotPtr robot = std::make_shared<Robot>(group, tip_frame, type);
+    auto jmg = robot_model_->getJointModelGroup(group);
+    
+    if (!jmg) return RobotID::make_nil();
+    if (!jmg->hasLinkModel(tip_frame)) return RobotID::make_nil();
+
+    const std::string& model_frame = robot_model_->getModelFrame();
+    RobotPtr robot = std::make_shared<Robot>(group, tip_frame, model_frame, type);
         
     RobotID id = robot->getID();
     robots_[id.value()] = robot;
@@ -31,39 +37,51 @@ bool MultiRobotGroup::planSynchronousTrajectory(CompositeTrajectory& comp_traj,
                                                 robot_trajectory::RobotTrajectory& output_traj,
                                                 moveit::core::RobotState& start_state)
 {
-    if (!comp_traj.equalSizes()) return false;
+    //if (!comp_traj.equalSizes()) return false;
+//
+    //moveit::core::RobotState state(start_state);
+//
+    //static double delta_time = 1;
+    //output_traj.addSuffixWayPoint(state, delta_time);
+//
+    //for (int i = 0; i < comp_traj.getLongestDimension(); i++)
+    //{
+    //    KinematicsQueryContext context;
+//
+    //    for (const auto& traj : comp_traj)
+    //    {
+    //        auto current_robot = getRobot(traj->id);
+//
+    //        context.current_robot = current_robot;
+    //        traj->points[i]->describe(context);
+//
+    //        current_robot->describePersistentConstraints(context);
+    //    }
+    //    addGlobalConstraints(context);
+//
+    //    bool success = kinematicsQuery(context, state);
+//
+    //    if (success)
+    //        output_traj.addSuffixWayPoint(state, delta_time);
+    //    else
+    //        return false;
+//
+    //}    
 
-    moveit::core::RobotState state(start_state);
+    // commented because of strange bug with time parameterization
+    //trajectory_processing::IterativeParabolicTimeParameterization time_param;
+    //return time_param.computeTimeStamps(output_traj);
+    return true;
+}
 
-    static double delta_time = 0.05;
-    output_traj.addSuffixWayPoint(state, delta_time);
 
-    for (int i = 0; i < comp_traj.getLongestDimension(); i++)
-    {
-        KinematicsQueryContext context;
 
-        for (const auto& traj : comp_traj)
-        {
-            auto current_robot = getRobot(traj->id);
-
-            context.current_robot_ = current_robot;
-            traj->points[i]->describe(context);
-
-            current_robot->describePersistentConstraints(context);
-        }
-        addGlobalConstraints(context);
-
-        bool success = kinematicsQuery(context, state);
-
-        if (success)
-            output_traj.addSuffixWayPoint(state, delta_time);
-        else
-            return false;
-
-    }    
-
-    trajectory_processing::IterativeParabolicTimeParameterization time_param;
-    return time_param.computeTimeStamps(output_traj);
+bool MultiRobotGroup::planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
+                                               robot_trajectory::RobotTrajectory& output_traj,
+                                               moveit::core::RobotState& start_state)
+{
+    
+    return false;
 }
 
 bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state)
@@ -87,6 +105,20 @@ void MultiRobotGroup::addGlobalConstraints(KinematicsQueryContext& context)
 
     context.ik_options.replace = true;
     context.ik_options.return_approximate_solution = true;
+}
+
+void MultiRobotGroup::setCoordinated(const std::vector<RobotID>& robots)
+{
+    for (auto& id : robots)
+    {
+        if (robots_.count(id.value()) == 0)
+        {
+            ROS_ERROR_STREAM("Robot ID: " << id.value() << " does not exist in group");
+            return;
+        }
+    }
+
+    coordinated_robots_ = robots;
 }
 
 } // namespace mrmf_core

@@ -5,8 +5,9 @@ namespace mrmf_core
 
 Robot::Robot(const std::string& group, 
       const std::string& tip_frame,
+      const std::string& default_pose_frame,
       const Robot::RobotType type)
-    : group_(group), tip_frame_(tip_frame), type_(type), id_(RobotID::make_id())
+    : group_(group), tip_frame_(tip_frame), default_pose_frame_(default_pose_frame), type_(type), id_(RobotID::make_id())
 {
 }
 
@@ -21,4 +22,4 @@ void Robot::describePersistentConstraints(KinematicsQueryContext& context) const
         constraint->describe(context);
 }
 
-} // namesapce mrmf_core
+} // namespace mrmf_core
