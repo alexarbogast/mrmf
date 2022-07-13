@@ -1,16 +1,22 @@
-#ifndef MRMF_UTILS_H
-#define MRMF_UTILS_H
+#ifndef MRMF_CORE_UTILS_H
+#define MRMF_CORE_UTILS_H
 
-#include <memory>
+#include <vector>
+#include <algorithm>
 
-#define MRMF_DECLARE_PTR(Name, Type)                                                                        \
-    typedef std::shared_ptr<Type> Name##Ptr;                                                                \
-    typedef std::shared_ptr<const Type> Name##ConstPtr;                                                     \
-    typedef std::unique_ptr<Type> Name##UniquePtr;                                                          \
-    typedef std::unique_ptr<const Type> Name##ConstUniquePtr;
+namespace mrmf_core
+{
+template <typename T>
+int binary_search_find_index(const std::vector<T>& v, T data)
+{
+    auto it = std::lower_bound(v.begin(), v.end(), data);
+    if (it == v.end())
+        return -1;
+    
+    std::size_t index = std::distance(v.begin(), it);
+    return index;
+}
 
-#define MRMF_CLASS_FORWARD(C)                                                                               \
-    class C;                                                                                                \
-    MRMF_DECLARE_PTR(C, C)                                                                                  \
+} // namespace mrmf_core
 
-#endif // MRMF_UTILS_H
+#endif // MRMF_CORE_UTILS_H

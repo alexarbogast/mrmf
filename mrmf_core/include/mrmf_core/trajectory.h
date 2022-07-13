@@ -18,6 +18,11 @@ public:
     std::deque<CartesianTrajectoryPtPtr>::const_iterator cbegin() const { return waypoints_.begin(); }
     std::deque<CartesianTrajectoryPtPtr>::const_iterator cend() const { return waypoints_.end(); }
 
+    inline void setStartTime(double t) { start_time_ = t; }
+    inline double getStartTime() const { return start_time_; }
+
+    inline bool isCoordinated() const { return positioner_.is_nil(); }
+
     inline void addPrefixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_front(pt); }
     inline void addSuffixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_back(pt); }
     void insertWayPoint(size_t index, const CartesianTrajectoryPtPtr& pt);
@@ -33,6 +38,12 @@ public:
     std::vector<double> getWaypointDurationsFromPrevious() const;
     std::vector<double> getWaypointDurationsFromStart() const;
 
+    /** 
+     * \brief  Returns a new trajectory with points interpolated at times
+     * \param  times - times at which to interpolate new trajectory points
+    */
+    CartesianTrajectoryPtr bisectExpansion(const std::set<double>& times) const;
+
     std::string toString() const;
     
     static std::shared_ptr<CartesianTrajectory> makeTrajectory(const RobotID& robot, 
@@ -45,6 +56,7 @@ public:
 private:
     std::deque<CartesianTrajectoryPtPtr> waypoints_;
     double velocity_;
+    double start_time_;
 
     RobotID robot_;
     RobotID positioner_; // positioner id for coordinated movements

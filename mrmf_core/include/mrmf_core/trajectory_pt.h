@@ -1,7 +1,7 @@
 #ifndef MRMF_TRAJECTORY_POINT_H
 #define MRMF_TRAJECTORY_POINT_H
 
-#include <mrmf_core/utils.h>
+#include <mrmf_core/macros.h>
 #include <mrmf_core/kinematics_query_context.h>
 #include <Eigen/Core>
 
