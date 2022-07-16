@@ -33,10 +33,10 @@ RobotPtr MultiRobotGroup::getRobot(const RobotID& id)
     return robots_[id.value()];
 }
 
-bool MultiRobotGroup::planSynchronousTrajectory(CompositeTrajectory& comp_traj, 
-                                                robot_trajectory::RobotTrajectory& output_traj,
-                                                moveit::core::RobotState& start_state)
-{
+//bool MultiRobotGroup::planSynchronousTrajectory(CompositeTrajectory& comp_traj, 
+//                                                robot_trajectory::RobotTrajectory& output_traj,
+//                                                moveit::core::RobotState& start_state)
+//{
     //if (!comp_traj.equalSizes()) return false;
 //
     //moveit::core::RobotState state(start_state);
@@ -71,18 +71,18 @@ bool MultiRobotGroup::planSynchronousTrajectory(CompositeTrajectory& comp_traj,
     // commented because of strange bug with time parameterization
     //trajectory_processing::IterativeParabolicTimeParameterization time_param;
     //return time_param.computeTimeStamps(output_traj);
-    return true;
-}
-
-
-
-bool MultiRobotGroup::planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
-                                               robot_trajectory::RobotTrajectory& output_traj,
-                                               moveit::core::RobotState& start_state)
-{
-    
-    return false;
-}
+//    return true;
+//}
+//
+//
+//
+//bool MultiRobotGroup::planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
+//                                               robot_trajectory::RobotTrajectory& output_traj,
+//                                               moveit::core::RobotState& start_state)
+//{
+//    
+//    return false;
+//}
 
 bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state)
 {

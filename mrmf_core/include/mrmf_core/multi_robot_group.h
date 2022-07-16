@@ -4,7 +4,7 @@
 #include <moveit/robot_trajectory/robot_trajectory.h>
 
 #include <mrmf_core/robot.h>
-#include <mrmf_core/trajectory.h>
+#include <mrmf_core/sync_trajectory.h>
 
 namespace mrmf_core
 {
@@ -22,13 +22,13 @@ public:
 
     RobotPtr getRobot(const RobotID& id);
 
-    bool planSynchronousTrajectory(CompositeTrajectory& traj, 
-                                   robot_trajectory::RobotTrajectory& output_traj,
-                                   moveit::core::RobotState& seed_state);
-
-    bool planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
-                                  robot_trajectory::RobotTrajectory& output_traj,
-                                  moveit::core::RobotState& start_state);
+    //bool planSynchronousTrajectory(CompositeTrajectory& traj, 
+    //                               robot_trajectory::RobotTrajectory& output_traj,
+    //                               moveit::core::RobotState& seed_state);
+//
+    //bool planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
+    //                              robot_trajectory::RobotTrajectory& output_traj,
+    //                              moveit::core::RobotState& start_state);
 
     bool kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state);
 
