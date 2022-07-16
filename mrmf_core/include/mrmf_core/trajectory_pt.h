@@ -17,12 +17,13 @@ public:
     // describe a trajectory point as a combination of kinematic constraints
     virtual void describe(KinematicsQueryContext& context) const = 0;
     virtual std::string toString() const = 0;
+
+    virtual TrajectoryPt* clone() const = 0;
     
     inline bool isInitialized() const { return initialized_; }
 
 protected:
     bool initialized_ = false;
-    std::string frame_;
 };
 
 
@@ -41,19 +42,19 @@ public:
         //goal1->setBaseFrame(frame_);
         //goal1->setLinkName(context.current_robot->getTipFrame());
         //goal1->setPosition(tf2::Vector3(position_.x(), position_.y(), position_.z()));
-
+// ins// ins
         //context.ik_options.goals.emplace_back(goal1);
     }
 
-    virtual std::string toString() const override
-    {
-        std::stringstream ss;
-        ss << "CartesianTrajectoryPt \n" << pose_.matrix();
-        return ss.str();
-    }
+    virtual CartesianTrajectoryPt* clone() const override;
+    virtual CartesianTrajectoryPt* interpolate(CartesianTrajectoryPt* to, double t) const;
+
+    virtual std::string toString() const override;
 
     inline const auto translation() const { return pose_.translation(); }
     inline const auto linear() const { return pose_.linear(); }
+    inline auto translation() { return pose_.translation(); }
+    inline auto linear() { return pose_.linear(); }
 
     double distance(const CartesianTrajectoryPt& other) const;
 
@@ -99,12 +100,10 @@ public:
         //context.ik_options.goals.emplace_back(direction_goal);
     }
 
-    virtual std::string toString() const override
-    {
-        std::stringstream ss;
-        ss << "AxialSymmetricPt \n" << pose_.translation();
-        return ss.str();
-    }
+    virtual AxialSymmetricPt* clone() const override;
+    virtual AxialSymmetricPt* interpolate(CartesianTrajectoryPt* to, double t) const override;
+
+    virtual std::string toString() const override;
 
 private:
     Eigen::Vector3d axis_;

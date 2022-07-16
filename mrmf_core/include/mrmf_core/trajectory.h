@@ -10,6 +10,7 @@ class CartesianTrajectory
 {
 public:
     CartesianTrajectory(const RobotID& robot, double velocity, const RobotID& positioner = RobotID::make_nil());
+    CartesianTrajectory(const CartesianTrajectory& other, bool deepcopy);
 
     inline size_t size() const { return waypoints_.size(); }
 
@@ -18,14 +19,25 @@ public:
     std::deque<CartesianTrajectoryPtPtr>::const_iterator cbegin() const { return waypoints_.begin(); }
     std::deque<CartesianTrajectoryPtPtr>::const_iterator cend() const { return waypoints_.end(); }
 
+    inline void setVelocity(double vel) { velocity_ = vel; }
+    inline double getVelocity() const { return velocity_; }
+
     inline void setStartTime(double t) { start_time_ = t; }
     inline double getStartTime() const { return start_time_; }
+
+    inline void setRobot(const RobotID& robot) { robot_ = robot; }
+    inline const RobotID& getRobot() const { return robot_; }
+
+    inline void setPositioner(const RobotID& positioner) { positioner_ = positioner; }
+    inline const RobotID& getPositioner() const { return positioner_; }
 
     inline bool isCoordinated() const { return positioner_.is_nil(); }
 
     inline void addPrefixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_front(pt); }
     inline void addSuffixWayPoint(const CartesianTrajectoryPtPtr& pt) { waypoints_.push_back(pt); }
     void insertWayPoint(size_t index, const CartesianTrajectoryPtPtr& pt);
+
+    CartesianTrajectoryPtPtr getWaypoint(std::size_t index) const;
 
     // for now assume 0 < i < waypoints_.size()
     double getWaypointDistanceFromPrevious(size_t index) const;
@@ -38,21 +50,11 @@ public:
     std::vector<double> getWaypointDurationsFromPrevious() const;
     std::vector<double> getWaypointDurationsFromStart() const;
 
-    /** 
-     * \brief  Returns a new trajectory with points interpolated at times
-     * \param  times - times at which to interpolate new trajectory points
-    */
-    CartesianTrajectoryPtr bisectExpansion(const std::set<double>& times) const;
-
     std::string toString() const;
-    
-    static std::shared_ptr<CartesianTrajectory> makeTrajectory(const RobotID& robot, 
-                                                               double velocity,
-                                                               const RobotID& positioner = RobotID::make_nil())
-    {
-        return std::make_shared<CartesianTrajectory>(robot, velocity, positioner);
-    }
 
+    /* Returns a new trajectory with identical parameter and empty waypoints */
+    CartesianTrajectory* emptyCopy() const;
+    
 private:
     std::deque<CartesianTrajectoryPtPtr> waypoints_;
     double velocity_;
@@ -79,11 +81,25 @@ public:
     void addTrajectory(const CartesianTrajectoryPtr x) { trajectories_.push_back(x); }
     void addTrajectory(CartesianTrajectoryPtr&& x) { trajectories_.emplace_back(x); }
 
-    void synchronizeTrajectories() const;
-
 private:
 
     std::vector<CartesianTrajectoryPtr> trajectories_;
+};
+
+
+class SynchronizedTrajectory
+{
+public:
+    SynchronizedTrajectory(const std::vector<CartesianTrajectoryPtr>& trajs);
+    
+    inline size_t size() const { return keypoints_.size(); }
+
+private:
+    void initialize(const std::vector<CartesianTrajectoryPtr>& trajs);
+
+private:
+    std::set<double> keypoints_;
+    std::vector<CartesianTrajectoryPtr> sync_trajs_;
 };
 
 } // namespace mrmf_core

@@ -7,9 +7,27 @@ CartesianTrajectory::CartesianTrajectory(const RobotID& robot, double velocity, 
         : robot_(robot), positioner_(positioner), velocity_(velocity)
 {}
 
+CartesianTrajectory::CartesianTrajectory(const CartesianTrajectory& other, bool deepcopy)
+{
+    *this = other;
+    if (deepcopy)
+    {
+        this->waypoints_.clear();
+        for (const auto& waypoint : other.waypoints_)
+        {
+            this->waypoints_.emplace_back(waypoint->clone());
+        }
+    }
+}
+
 void CartesianTrajectory::insertWayPoint(size_t index, const CartesianTrajectoryPtPtr& pt)
 {
     waypoints_.insert(waypoints_.begin() + index, pt);
+}
+
+CartesianTrajectoryPtPtr CartesianTrajectory::getWaypoint(std::size_t index) const
+{
+    return CartesianTrajectoryPtPtr(waypoints_[index]->clone());
 }
 
 double CartesianTrajectory::getWaypointDistanceFromPrevious(size_t i) const
@@ -72,45 +90,6 @@ std::vector<double> CartesianTrajectory::getWaypointDurationsFromStart() const
     return d;
 }
 
-CartesianTrajectoryPtr CartesianTrajectory::bisectExpansion(const std::set<double>& times) const
-{
-    CartesianTrajectoryPtr new_traj = makeTrajectory(robot_, velocity_, positioner_);
-    new_traj->setStartTime(start_time_);
-
-    auto old_times = getWaypointDurationsFromStart();
-
-    std::vector<int> test;
-    for (auto& time : times)
-    {
-        int index = binary_search_find_index(old_times, time);
-        test.push_back(index);
-
-    }
-
-    std::cout << std::endl;
-    std::cout << "Old Times: \n";
-    for (auto& t : old_times)
-    {
-        std::cout << t << std::endl;
-    }
-
-    std::cout << std::endl;
-    std::cout << "New Times: \n";
-    for (auto& t : times)
-    {
-        std::cout << t << std::endl;
-    }
-
-    std::cout << std::endl;
-    std::cout << "Insertion Index: \n";
-    for (auto& t : test)
-    {
-        std::cout << t << std::endl;
-    }
-
-    return new_traj;
-}
-
 std::string CartesianTrajectory::toString() const
 {
     std::stringstream ss;
@@ -124,35 +103,76 @@ std::string CartesianTrajectory::toString() const
     return ss.str();
 }
 
+CartesianTrajectory* CartesianTrajectory::emptyCopy() const
+{
+    return new CartesianTrajectory(robot_, velocity_, positioner_);
+}
 
-void CompositeTrajectory::synchronizeTrajectories() const
+
+SynchronizedTrajectory::SynchronizedTrajectory(const std::vector<CartesianTrajectoryPtr>& trajs)
+{
+    initialize(trajs);
+} 
+
+void SynchronizedTrajectory::initialize(const std::vector<CartesianTrajectoryPtr>& trajs)
 {
     // create set of unique keypoints
     // keypoints are points in time that at least one robot is at an explicit waypoint
-    std::set<double> keypoints;
-    for (auto& traj : trajectories_)
+    std::vector<std::vector<double>> original_times;
+    for (auto& traj : trajs)
     {
         auto times = traj->getWaypointDurationsFromStart();
 
         // retain time accuracy down to the ms
-        std::transform(times.begin(), times.end(), std::inserter(keypoints, keypoints.begin()), 
-                       [](auto& time){ return round(time * 1000) / 1000; });
+        std::transform(times.begin(), times.end(), std::inserter(keypoints_, keypoints_.begin()),
+            [](auto& time){ return time = round(time * 1000) / 1000; });
+
+        original_times.emplace_back(std::move(times));
     }      
 
     // use keypoints to determine synchronized cartesian coordinates
-    std::vector<CartesianTrajectoryPtr> sync_trajs;
-    for (auto& traj : trajectories_)
-        sync_trajs.push_back(traj->bisectExpansion(keypoints));
+    for (int i = 0; i < trajs.size(); i++)
+    {
+        // copy original trajectory data
+        CartesianTrajectoryPtr new_traj(trajs[i]->emptyCopy());
+        new_traj->addPrefixWayPoint(trajs[i]->getWaypoint(0));
 
+        // populate new trajectory with interpolated waypoints
+        bool found_end = false;
+        size_t start_idx = 0, end_idx = 0, keypoint_idx = 0;
+        for (const auto& keypoint : keypoints_)
+        {
+            int index = binary_search_find_index_inclusive(original_times[i], keypoint);
+            
+            if (index == 0)
+                start_idx++;
+            else if (index == -1)
+            {
+                end_idx = found_end ? end_idx : keypoint_idx - 1;
+                found_end = true;
+            }
+            else
+            {
+                double prev_time = original_times[i][index - 1], cur_time = original_times[i][index];
+                double t = (keypoint - prev_time) / (cur_time - prev_time);
+                
+                auto prev_point = trajs[i]->getWaypoint(index - 1);
+                auto cur_point = trajs[i]->getWaypoint(index);
 
-    // temp
-    for (auto& foo : keypoints)
-        std::cout << foo << std::endl;
+                auto interp = prev_point->interpolate(cur_point.get(), t);
+                new_traj->addSuffixWayPoint(CartesianTrajectoryPtPtr(interp));
+            }
+            keypoint_idx++;
+        }
+        start_idx--;
+        end_idx = end_idx == 0 ? keypoint_idx - 1 : end_idx;
+        sync_trajs_.push_back(new_traj);
+    }
 
-    std::cout << std::endl;
-
-    for (auto& foo : sync_trajs)
-        std::cout << foo->toString() << std::endl;
+    for (const auto& traj : sync_trajs_)
+    {
+        std::cout << traj->toString() << std::endl;
+    }
 }
 
 } // namespace mrmf_core
