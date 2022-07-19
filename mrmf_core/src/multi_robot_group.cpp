@@ -1,6 +1,8 @@
 #include <mrmf_core/multi_robot_group.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
+#include <ifopt/problem.h>
+
 namespace mrmf_core
 {
 MultiRobotGroup::MultiRobotGroup(const std::string& group, const moveit::core::RobotModelConstPtr& robot_model)
@@ -14,13 +16,25 @@ RobotID MultiRobotGroup::addRobot(const std::string& group,
                                   const std::string& tip_frame,
                                   const Robot::RobotType type)
 {
+    const std::string& model_frame = robot_model_->getModelFrame();
+    return addRobot(group, tip_frame, model_frame, type);
+}
+
+RobotID MultiRobotGroup::addRobot(const std::string& group,  
+                                  const std::string& tip_frame,
+                                  const std::string& base_frame,
+                                  const Robot::RobotType type)
+{
     auto jmg = robot_model_->getJointModelGroup(group);
     
     if (!jmg) return RobotID::make_nil();
-    if (!jmg->hasLinkModel(tip_frame)) return RobotID::make_nil();
+    if (!jmg->hasLinkModel(tip_frame) || !robot_model_->hasLinkModel(base_frame))
+    {
+        ROS_ERROR("Failed to add robot to MultiRobotGroup");
+        return RobotID::make_nil();
+    }
 
-    const std::string& model_frame = robot_model_->getModelFrame();
-    RobotPtr robot = std::make_shared<Robot>(group, tip_frame, model_frame, type);
+    RobotPtr robot = std::make_shared<Robot>(group, tip_frame, base_frame, type);
         
     RobotID id = robot->getID();
     robots_[id.value()] = robot;
@@ -30,61 +44,33 @@ RobotID MultiRobotGroup::addRobot(const std::string& group,
 
 RobotPtr MultiRobotGroup::getRobot(const RobotID& id)
 {
-    return robots_[id.value()];
+    return robots_.at(id.value());
 }
 
-//bool MultiRobotGroup::planSynchronousTrajectory(CompositeTrajectory& comp_traj, 
-//                                                robot_trajectory::RobotTrajectory& output_traj,
-//                                                moveit::core::RobotState& start_state)
-//{
-    //if (!comp_traj.equalSizes()) return false;
-//
-    //moveit::core::RobotState state(start_state);
-//
-    //static double delta_time = 1;
-    //output_traj.addSuffixWayPoint(state, delta_time);
-//
-    //for (int i = 0; i < comp_traj.getLongestDimension(); i++)
-    //{
-    //    KinematicsQueryContext context;
-//
-    //    for (const auto& traj : comp_traj)
-    //    {
-    //        auto current_robot = getRobot(traj->id);
-//
-    //        context.current_robot = current_robot;
-    //        traj->points[i]->describe(context);
-//
-    //        current_robot->describePersistentConstraints(context);
-    //    }
-    //    addGlobalConstraints(context);
-//
-    //    bool success = kinematicsQuery(context, state);
-//
-    //    if (success)
-    //        output_traj.addSuffixWayPoint(state, delta_time);
-    //    else
-    //        return false;
-//
-    //}    
+const RobotPtr MultiRobotGroup::getRobot(const RobotID& id) const
+{
+    return robots_.at(id.value());
+}
 
-    // commented because of strange bug with time parameterization
-    //trajectory_processing::IterativeParabolicTimeParameterization time_param;
-    //return time_param.computeTimeStamps(output_traj);
-//    return true;
-//}
-//
-//
-//
-//bool MultiRobotGroup::planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
-//                                               robot_trajectory::RobotTrajectory& output_traj,
-//                                               moveit::core::RobotState& start_state)
-//{
-//    
-//    return false;
-//}
+bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj, 
+                                               robot_trajectory::RobotTrajectory& output_traj,
+                                               moveit::core::RobotState& seed_state)
+{
+    size_t n = traj.size();
 
-bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state)
+    for (size_t i = 0; i < 1; i++)
+    {
+        SyncPointInfo spi = traj.getSyncPointInfo(i);
+
+        // Solve the positioner optimization problem
+        double pos_value = positionerOptimization(spi, seed_state);
+
+    }
+
+    return false;
+}
+
+bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, robot_state::RobotState& seed_state)
 {
     bool success = seed_state.setFromIK(
         joint_model_group_,              // joints to be used for IK
@@ -107,18 +93,43 @@ void MultiRobotGroup::addGlobalConstraints(KinematicsQueryContext& context)
     context.ik_options.return_approximate_solution = true;
 }
 
-void MultiRobotGroup::setCoordinated(const std::vector<RobotID>& robots)
+double MultiRobotGroup::positionerOptimization(const SyncPointInfo& spi,
+                                               robot_state::RobotState& seed_state) const
 {
-    for (auto& id : robots)
+    // use the positioner to minimize the 2D distance between the robot end effector
+    // and the robot base
+    EigenSTL::vector_Vector3d interest_points;
+    EigenSTL::vector_Vector3d base_positions;
+
+    // update frame transformations in seed state
+    seed_state.update();
+
+    for (int i = 0; i < spi.nPoints(); i++)
     {
-        if (robots_.count(id.value()) == 0)
+        if (!spi.positioners[i].is_nil())
         {
-            ROS_ERROR_STREAM("Robot ID: " << id.value() << " does not exist in group");
-            return;
+            interest_points.push_back(spi.waypoints[i]->translation());
+            
+            const std::string& base_name = getRobot(spi.robots[i])->getBaseFrame();
+            base_positions.push_back(seed_state.getFrameTransform(base_name).translation());
         }
     }
+ 
+    // create objective function
+    auto objective = [interest_points, base_positions](double theta)
+    {
+        double cost = 0.0;
 
-    coordinated_robots_ = robots;
+        Eigen::Rotation2Dd rot2(theta);
+        for (int i = 0; i < interest_points.size(); i++)
+        {
+            Eigen::Vector2d pt2 = interest_points[i].head<2>();
+            cost += ((rot2 * pt2) - base_positions[i].head<2>()).norm();
+        }
+        return cost;
+    };
+
+    return 0.0;
 }
 
 } // namespace mrmf_core

@@ -20,34 +20,35 @@ public:
                      const std::string& tip_frame,
                      const Robot::RobotType = Robot::RobotType::MANIPULATOR);
 
-    RobotPtr getRobot(const RobotID& id);
+    RobotID addRobot(const std::string& group, 
+                     const std::string& tip_frame,
+                     const std::string& base_frame,
+                     const Robot::RobotType = Robot::RobotType::MANIPULATOR);
 
-    //bool planSynchronousTrajectory(CompositeTrajectory& traj, 
-    //                               robot_trajectory::RobotTrajectory& output_traj,
-    //                               moveit::core::RobotState& seed_state);
-//
-    //bool planMultiRobotTrajectory(CompositeTrajectory& comp_traj,
-    //                              robot_trajectory::RobotTrajectory& output_traj,
-    //                              moveit::core::RobotState& start_state);
+    RobotPtr getRobot(const RobotID& id);
+    const RobotPtr getRobot(const RobotID& id) const;
+
+    bool planMultiRobotTrajectory(SynchronousTrajectory& traj, 
+                                  robot_trajectory::RobotTrajectory& output_traj,
+                                  robot_state::RobotState& seed_state);
 
     bool kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state);
 
-    // test
-    void setCoordinated(const std::vector<RobotID>& robots); 
-    void clearCoordinated() { coordinated_robots_.clear(); }
-
 private:
     void addGlobalConstraints(KinematicsQueryContext& context);
+    
+    // temp
+    double positionerOptimization(const SyncPointInfo& spi,
+                                  robot_state::RobotState& seed_state) const;
 
 private:
     std::string group_;
     std::string home_position_name_ = "home";
 
     std::unordered_map<uint64_t, RobotPtr> robots_;
+
     moveit::core::RobotModelConstPtr robot_model_;
     const moveit::core::JointModelGroup* joint_model_group_;
-    
-    std::vector<RobotID> coordinated_robots_;
 };
 
 } // namespace mrmf_core

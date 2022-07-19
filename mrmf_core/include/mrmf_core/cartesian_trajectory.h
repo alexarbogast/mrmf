@@ -57,7 +57,7 @@ public:
 private:
     std::deque<CartesianWaypointPtr> waypoints_;
     double velocity_;
-    double start_time_;
+    double start_time_ = 0.0;
 
     RobotID robot_;
     RobotID positioner_; // positioner id for coordinated movements

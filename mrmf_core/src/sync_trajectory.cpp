@@ -4,12 +4,12 @@
 namespace mrmf_core
 {
 
-SynchronizedTrajectory::SynchronizedTrajectory(const std::vector<CartesianTrajectoryPtr>& trajs)
+SynchronousTrajectory::SynchronousTrajectory(const std::vector<CartesianTrajectoryPtr>& trajs)
 {
     initialize(trajs);
 } 
 
-void SynchronizedTrajectory::initialize(const std::vector<CartesianTrajectoryPtr>& trajs)
+void SynchronousTrajectory::initialize(const std::vector<CartesianTrajectoryPtr>& trajs)
 {
     // create set of unique keypoints
     // keypoints are points in time that at least one robot is at an explicit waypoint
@@ -23,7 +23,7 @@ void SynchronizedTrajectory::initialize(const std::vector<CartesianTrajectoryPtr
             [](auto& time){ return time = round(time * 1000) / 1000; });
 
         original_times.emplace_back(std::move(times));
-    }      
+    }
 
     // use keypoints to determine synchronized cartesian coordinates
     for (int i = 0; i < trajs.size(); i++)
@@ -61,13 +61,61 @@ void SynchronizedTrajectory::initialize(const std::vector<CartesianTrajectoryPtr
         }
         start_idx--;
         end_idx = end_idx == 0 ? keypoint_idx - 1 : end_idx;
+
+        start_end_idx.push_back({start_idx, end_idx});
         sync_trajs_.push_back(new_traj);
     }
+}
 
+SyncPointInfo SynchronousTrajectory::getSyncPointInfo(size_t index) const
+{
+    SyncPointInfo spi;
+    
+    auto it = keypoints_.begin();
+    std::advance(it, index);
+    spi.time = *it;
+    
+    for (size_t i = 0; i < sync_trajs_.size(); i++)
+    {
+        if (index >= start_end_idx[i][0] && index <= start_end_idx[i][1])
+        {
+            auto& traj = sync_trajs_[i];
+            spi.robots.push_back(traj->getRobot());
+            spi.positioners.push_back(traj->getPositioner());
+            spi.waypoints.push_back(traj->getWaypoint(index));
+        }
+    }
+    
+    return spi;
+}
+
+std::vector<RobotID> SynchronousTrajectory::getRobotIDs() const
+{
+    std::vector<RobotID> ids;
+    for (const auto& traj : sync_trajs_)
+        ids.push_back(traj->getRobot());
+
+    return ids;
+}
+
+std::vector<RobotID> SynchronousTrajectory::getPositionerIDs() const
+{
+    std::vector<RobotID> ids;
+    for (const auto& traj : sync_trajs_)
+        ids.push_back(traj->getPositioner());
+
+    return ids;
+}
+
+std::string SynchronousTrajectory::toString() const
+{
+    std::stringstream ss;
     for (const auto& traj : sync_trajs_)
     {
-        std::cout << traj->toString() << std::endl;
+        ss << traj->toString();
     }
+    
+    return ss.str();
 }
 
 } // namespace mrmf_core

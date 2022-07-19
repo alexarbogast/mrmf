@@ -16,7 +16,7 @@ public:
 
     Robot(const std::string& group, 
           const std::string& tip_frame,
-          const std::string& default_pose_frame,
+          const std::string& base_frame,
           const Robot::RobotType type = Robot::RobotType::MANIPULATOR);
 
     const std::string& getGroup() const { return group_; }
@@ -25,8 +25,8 @@ public:
     const std::string& getTipFrame() const { return tip_frame_; }
     void setTipFrame(const std::string& frame) { tip_frame_ = frame; }
 
-    const std::string& getDefaultPoseFrame() const { return default_pose_frame_; }
-    void setDefaultPoseFrame(const std::string& frame) { default_pose_frame_ = frame; }
+    const std::string& getBaseFrame() const { return base_frame_; }
+    void setBaseFrame(const std::string& frame) { base_frame_ = frame; }
 
     inline const Robot::RobotType& getType() const { return type_; }
     inline void setType(const Robot::RobotType& type) { type_ = type; }
@@ -39,7 +39,7 @@ public:
 protected:
     std::string group_;
     std::string tip_frame_;
-    std::string default_pose_frame_;
+    std::string base_frame_;
     Robot::RobotType type_ = RobotType::MANIPULATOR;
 
     std::vector<ConstraintPtr> constraints_;
