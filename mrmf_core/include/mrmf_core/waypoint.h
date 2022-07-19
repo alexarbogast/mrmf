@@ -15,6 +15,8 @@ public:
     virtual ~Waypoint() = default;
 
     virtual std::string toString() const = 0;
+
+    virtual void describe(KinematicsQueryContext& context) const = 0;
     virtual Waypoint* clone() const = 0;
     
     inline bool isInitialized() const { return initialized_; }
@@ -35,6 +37,8 @@ public:
 
     virtual CartesianWaypoint* clone() const override;
     virtual CartesianWaypoint* interpolate(CartesianWaypoint* to, double t) const;
+
+    virtual void describe(KinematicsQueryContext& context) const override;
 
     virtual std::string toString() const override;
 
@@ -73,6 +77,8 @@ public:
 
     virtual AxialSymmetricWaypoint* clone() const override;
     virtual AxialSymmetricWaypoint* interpolate(CartesianWaypoint* to, double t) const override;
+
+    virtual void describe(KinematicsQueryContext& context) const override;
 
     virtual std::string toString() const override;
 

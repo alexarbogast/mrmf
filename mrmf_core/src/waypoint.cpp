@@ -27,6 +27,11 @@ CartesianWaypoint* CartesianWaypoint::interpolate(CartesianWaypoint* to, double 
     return new CartesianWaypoint(interp);
 }
 
+void CartesianWaypoint::describe(KinematicsQueryContext& context) const
+{
+    std::cout << "I am a CartesianWaypoint" << std::endl;
+}
+
 std::string CartesianWaypoint::toString() const
 {
     std::stringstream ss;
@@ -58,6 +63,25 @@ AxialSymmetricWaypoint* AxialSymmetricWaypoint::interpolate(CartesianWaypoint* t
 {
     auto trans = translation() + t * (to->translation() - translation());
     return new AxialSymmetricWaypoint(trans, this->axis_, this->direction_);
+}
+
+void AxialSymmetricWaypoint::describe(KinematicsQueryContext& context) const
+{
+    auto& trans = translation();
+    tf2::Vector3 position(trans.x(), trans.y(), trans.z());
+    tf2::Vector3 axis(axis_.x(), axis_.y(), axis_.z());
+
+    auto* position_goal = new bio_ik::PositionGoal();
+    position_goal->setLinkName(context.current_robot->getTipFrame());
+    position_goal->setPosition(position);
+
+    auto* direction_goal = new bio_ik::DirectionGoal();
+    direction_goal->setLinkName(context.current_robot->getTipFrame());
+    direction_goal->setAxis(axis);
+    direction_goal->setDirection(direction_ * axis);
+
+    context.ik_options.goals.emplace_back(position_goal);
+    context.ik_options.goals.emplace_back(direction_goal);
 }
 
 std::string AxialSymmetricWaypoint::toString() const

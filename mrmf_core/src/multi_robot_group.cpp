@@ -33,7 +33,7 @@ RobotID MultiRobotGroup::addRobot(const std::string& group,
     }
 
     RobotPtr robot = std::make_shared<Robot>(group, tip_frame, base_frame, type);
-        
+    
     RobotID id = robot->getID();
     robots_[id.value()] = robot;
     
@@ -50,6 +50,12 @@ const RobotPtr MultiRobotGroup::getRobot(const RobotID& id) const
     return robots_.at(id.value());
 }
 
+const robot_model::JointModelGroup* MultiRobotGroup::getJointModelGroup(const RobotID& id) const
+{
+    return robot_model_->getJointModelGroup(getRobot(id)->getGroup());
+}
+
+
 bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj, 
                                                robot_trajectory::RobotTrajectory& output_traj,
                                                moveit::core::RobotState& seed_state)
@@ -57,23 +63,48 @@ bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj,
     robot_state::RobotState current_state = seed_state;
     size_t n = traj.size();
 
+    output_traj.addSuffixWayPoint(current_state, 0);
+
+    double prev_time = -2.0;
     for (size_t i = 0; i < n; i++)
     {
         SyncPointInfo spi = traj.getSyncPointInfo(i);
 
         // solver for coordinated robots first using unique positioner ids
         std::set<RobotID> unique_pos(spi.positioners.begin(), spi.positioners.end());
+
         for (auto& p : unique_pos)
         {
-            auto jmg = robot_model_->getJointModelGroup(getRobot(p)->getGroup());
+            if (!p.is_nil())
+            {
+                auto jmg = getJointModelGroup(p);
             
-            // Solve the positioner optimization problem
-            double pos_value = positionerOptimization(spi, p, current_state);
-            current_state.setJointGroupPositions(jmg, {pos_value});
+                // Solve the positioner optimization problem
+                double pos_value = positionerOptimization(spi, p, current_state);
+                current_state.setJointGroupPositions(jmg, {pos_value});
+            }
         }
+
+        // describe waypoints as constraints and solve IK
+        KinematicsQueryContext context;
+        for (int j = 0; j < spi.nPoints(); j++)
+        {
+            context.current_robot = getRobot(spi.robots[j]);
+            spi.waypoints[j]->describe(context);
+        }  
+        addGlobalConstraints(context);
+
+        bool success = kinematicsQuery(context, current_state);
+
+        if (success)
+            output_traj.addSuffixWayPoint(current_state, spi.time - prev_time);
+        else
+            return false;
+
+        prev_time = spi.time;
     }
 
-    return false;
+    return true;
 }
 
 bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, robot_state::RobotState& seed_state)

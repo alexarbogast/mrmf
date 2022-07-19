@@ -28,6 +28,8 @@ public:
     RobotPtr getRobot(const RobotID& id);
     const RobotPtr getRobot(const RobotID& id) const;
 
+    const robot_model::JointModelGroup* getJointModelGroup(const RobotID& id) const;
+
     bool planMultiRobotTrajectory(SynchronousTrajectory& traj, 
                                   robot_trajectory::RobotTrajectory& output_traj,
                                   robot_state::RobotState& seed_state);
