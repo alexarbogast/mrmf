@@ -1,8 +1,6 @@
 #include <mrmf_core/multi_robot_group.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
-#include <ifopt/problem.h>
-
 namespace mrmf_core
 {
 MultiRobotGroup::MultiRobotGroup(const std::string& group, const moveit::core::RobotModelConstPtr& robot_model)
@@ -56,15 +54,23 @@ bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj,
                                                robot_trajectory::RobotTrajectory& output_traj,
                                                moveit::core::RobotState& seed_state)
 {
+    robot_state::RobotState current_state = seed_state;
     size_t n = traj.size();
 
-    for (size_t i = 0; i < 1; i++)
+    for (size_t i = 0; i < n; i++)
     {
         SyncPointInfo spi = traj.getSyncPointInfo(i);
 
-        // Solve the positioner optimization problem
-        double pos_value = positionerOptimization(spi, seed_state);
-
+        // solver for coordinated robots first using unique positioner ids
+        std::set<RobotID> unique_pos(spi.positioners.begin(), spi.positioners.end());
+        for (auto& p : unique_pos)
+        {
+            auto jmg = robot_model_->getJointModelGroup(getRobot(p)->getGroup());
+            
+            // Solve the positioner optimization problem
+            double pos_value = positionerOptimization(spi, p, current_state);
+            current_state.setJointGroupPositions(jmg, {pos_value});
+        }
     }
 
     return false;
@@ -93,11 +99,16 @@ void MultiRobotGroup::addGlobalConstraints(KinematicsQueryContext& context)
     context.ik_options.return_approximate_solution = true;
 }
 
+
+/* Use the positioner to minimize the 2D distance between each
+ * robot end effector and the robot base 
+ * 
+ * for now we will assume there is only one positioner
+ */
 double MultiRobotGroup::positionerOptimization(const SyncPointInfo& spi,
+                                               const RobotID& positioner,
                                                robot_state::RobotState& seed_state) const
 {
-    // use the positioner to minimize the 2D distance between the robot end effector
-    // and the robot base
     EigenSTL::vector_Vector3d interest_points;
     EigenSTL::vector_Vector3d base_positions;
 
@@ -106,7 +117,7 @@ double MultiRobotGroup::positionerOptimization(const SyncPointInfo& spi,
 
     for (int i = 0; i < spi.nPoints(); i++)
     {
-        if (!spi.positioners[i].is_nil())
+        if (spi.positioners[i] == positioner)
         {
             interest_points.push_back(spi.waypoints[i]->translation());
             
@@ -114,7 +125,7 @@ double MultiRobotGroup::positionerOptimization(const SyncPointInfo& spi,
             base_positions.push_back(seed_state.getFrameTransform(base_name).translation());
         }
     }
- 
+
     // create objective function
     auto objective = [interest_points, base_positions](double theta)
     {
@@ -129,7 +140,34 @@ double MultiRobotGroup::positionerOptimization(const SyncPointInfo& spi,
         return cost;
     };
 
-    return 0.0;
+    auto gradient = [objective](double x_old, double step)
+    {
+        double x_new = x_old + step;  
+        return (objective(x_new) - objective(x_old)) / step;
+    };
+
+    // gradient descent
+    static unsigned int max_iter = 1000;
+    static double tol = 1e-5, step_size = 0.1, gradient_step = 0.00001;
+
+    unsigned int iter_count = 0;
+    double gradientMagnitude = 1.0;
+
+    double xk = seed_state.getVariablePosition(0);
+    while ((iter_count < max_iter) && (gradientMagnitude > tol))
+    {
+        double gr = gradient(xk, gradient_step);
+        gradientMagnitude = sqrt(gr * gr);
+        xk += -(gr * step_size);
+
+        iter_count++;
+    }
+
+    std::cout << "Iterations: " << iter_count << std::endl;
+    std::cout << "Gradient mag: " << gradientMagnitude << std::endl;
+    std::cout << "Sol: " << xk << std::endl << std::endl;
+
+    return xk;
 }
 
 } // namespace mrmf_core

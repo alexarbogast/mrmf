@@ -39,6 +39,7 @@ private:
     
     // temp
     double positionerOptimization(const SyncPointInfo& spi,
+                                  const RobotID& positioner,
                                   robot_state::RobotState& seed_state) const;
 
 private:
