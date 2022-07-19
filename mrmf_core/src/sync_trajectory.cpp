@@ -82,7 +82,7 @@ SyncPointInfo SynchronousTrajectory::getSyncPointInfo(size_t index) const
             auto& traj = sync_trajs_[i];
             spi.robots.push_back(traj->getRobot());
             spi.positioners.push_back(traj->getPositioner());
-            spi.waypoints.push_back(traj->getWaypoint(index));
+            spi.waypoints.push_back(traj->getWaypoint(index - start_end_idx[i][0]));
         }
     }
     
