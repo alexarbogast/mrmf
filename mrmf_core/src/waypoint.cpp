@@ -29,7 +29,18 @@ CartesianWaypoint* CartesianWaypoint::interpolate(CartesianWaypoint* to, double 
 
 void CartesianWaypoint::describe(KinematicsQueryContext& context) const
 {
-    std::cout << "I am a CartesianWaypoint" << std::endl;
+    auto& trans = translation();
+    auto rot = Eigen::Quaterniond(linear());
+
+    tf2::Vector3 position(trans.x(), trans.y(), trans.z());
+    tf2::Quaternion orient(rot.x(), rot.y(), rot.z(), rot.w());
+
+    auto* pose_goal = new bio_ik::PoseGoal();
+    pose_goal->setLinkName(context.current_robot->getTipFrame());
+    pose_goal->setPosition(position);
+    pose_goal->setOrientation(orient);
+
+    context.ik_options.goals.emplace_back(pose_goal);
 }
 
 std::string CartesianWaypoint::toString() const

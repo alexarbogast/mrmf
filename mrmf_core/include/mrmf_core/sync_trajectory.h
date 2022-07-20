@@ -8,7 +8,7 @@ namespace mrmf_core
 struct SyncPointInfo
 {
     double time;
-    std::vector<CartesianWaypointConstPtr> waypoints;
+    std::vector<CartesianWaypointPtr> waypoints;
     std::vector<RobotID> robots;
     std::vector<RobotID> positioners;
 

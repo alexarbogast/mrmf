@@ -47,6 +47,9 @@ public:
     inline auto translation() { return pose_.translation(); }
     inline auto linear() { return pose_.linear(); }
 
+    virtual Eigen::Isometry3d& getPose() { return pose_; }
+    virtual const Eigen::Isometry3d& getPose() const { return pose_; }
+
     double distance(const CartesianWaypoint& other) const;
 
 protected:

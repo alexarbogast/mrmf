@@ -89,6 +89,30 @@ std::vector<double> CartesianTrajectory::getWaypointDurationsFromStart() const
     return d;
 }
 
+void CartesianTrajectory::makeDense(double max_step)
+{
+    std::deque<CartesianWaypointPtr> new_waypoints;
+    new_waypoints.push_back(waypoints_[0]);
+
+    for (std::size_t i = 1; i < size(); i++)
+    {
+        const auto& current = waypoints_[i];
+        const auto& prev = waypoints_[i - 1];
+
+        double distance = (current->translation() - prev->translation()).norm();
+        std::size_t steps = ceil(distance / max_step);
+        double perc_step = 1.0 / (double)steps;
+
+        for (std::size_t j = 1; j <= steps; j++)
+        {
+            double perc = (double)j * perc_step;
+            new_waypoints.push_back(CartesianWaypointPtr(prev->interpolate(current.get(), perc)));
+        }
+    }
+
+    waypoints_ = new_waypoints;
+}
+
 std::string CartesianTrajectory::toString() const
 {
     std::stringstream ss;

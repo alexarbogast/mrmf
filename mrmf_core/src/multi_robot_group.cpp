@@ -69,6 +69,7 @@ bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj,
     for (size_t i = 0; i < n; i++)
     {
         SyncPointInfo spi = traj.getSyncPointInfo(i);
+        KinematicsQueryContext context;
 
         // solver for coordinated robots first using unique positioner ids
         std::set<RobotID> unique_pos(spi.positioners.begin(), spi.positioners.end());
@@ -85,13 +86,19 @@ bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj,
             }
         }
 
+        current_state.update();
         // describe waypoints as constraints and solve IK
-        KinematicsQueryContext context;
         for (int j = 0; j < spi.nPoints(); j++)
         {
+            auto p = spi.positioners[j];
+            if (!p.is_nil())
+            {
+                auto& T_world_pos = current_state.getFrameTransform(getRobot(p)->getTipFrame());
+                spi.waypoints[j]->getPose() = T_world_pos * spi.waypoints[j]->getPose();
+            }
             context.current_robot = getRobot(spi.robots[j]);
             spi.waypoints[j]->describe(context);
-        }  
+        }
         addGlobalConstraints(context);
 
         bool success = kinematicsQuery(context, current_state);
@@ -194,9 +201,9 @@ double MultiRobotGroup::positionerOptimization(const SyncPointInfo& spi,
         iter_count++;
     }
 
-    std::cout << "Iterations: " << iter_count << std::endl;
-    std::cout << "Gradient mag: " << gradientMagnitude << std::endl;
-    std::cout << "Sol: " << xk << std::endl << std::endl;
+    // std::cout << "Iterations: " << iter_count << std::endl;
+    // std::cout << "Gradient mag: " << gradientMagnitude << std::endl;
+    // std::cout << "Sol: " << xk << std::endl << std::endl;
 
     return xk;
 }

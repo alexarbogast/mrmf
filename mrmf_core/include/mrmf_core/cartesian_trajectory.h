@@ -52,6 +52,7 @@ public:
     std::vector<double> getWaypointDurationsFromPrevious() const;
     std::vector<double> getWaypointDurationsFromStart() const;
 
+    void makeDense(double make_step);
     std::string toString() const;
     
 private:
