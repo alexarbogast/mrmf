@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include <mrmf_core/constraint.h>
+#include <moveit/robot_model/joint_model_group.h>
 #include <mrmf_core/unique_id.h>
 
 namespace mrmf_core
@@ -17,10 +17,11 @@ public:
     Robot(const std::string& group, 
           const std::string& tip_frame,
           const std::string& base_frame,
+          const moveit::core::JointModelGroup* jmg,
           const Robot::RobotType type = Robot::RobotType::MANIPULATOR);
 
     const std::string& getGroup() const { return group_; }
-    void setGroup(const std::string& group) { group_ = group; }
+    const moveit::core::JointModelGroup* getJointModelGroup() const { return jmg_; }
 
     const std::string& getTipFrame() const { return tip_frame_; }
     void setTipFrame(const std::string& frame) { tip_frame_ = frame; }
@@ -33,16 +34,14 @@ public:
 
     const RobotID& getID() const { return id_; }
 
-    void addPersistentConstraint(const ConstraintPtr& constraint);
-    void describePersistentConstraints(KinematicsQueryContext& context) const;
-
 protected:
     std::string group_;
     std::string tip_frame_;
     std::string base_frame_;
     Robot::RobotType type_ = RobotType::MANIPULATOR;
 
-    std::vector<ConstraintPtr> constraints_;
+    const moveit::core::JointModelGroup* jmg_;
+
     RobotID id_;
 };
 

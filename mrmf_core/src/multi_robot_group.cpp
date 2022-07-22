@@ -32,8 +32,8 @@ RobotID MultiRobotGroup::addRobot(const std::string& group,
         return RobotID::make_nil();
     }
 
-    RobotPtr robot = std::make_shared<Robot>(group, tip_frame, base_frame, type);
-    
+    RobotPtr robot = std::make_shared<Robot>(group, tip_frame, base_frame, jmg, type);
+
     RobotID id = robot->getID();
     robots_[id.value()] = robot;
     
@@ -52,7 +52,7 @@ const RobotPtr MultiRobotGroup::getRobot(const RobotID& id) const
 
 const robot_model::JointModelGroup* MultiRobotGroup::getJointModelGroup(const RobotID& id) const
 {
-    return robot_model_->getJointModelGroup(getRobot(id)->getGroup());
+    return getRobot(id)->getJointModelGroup();
 }
 
 
