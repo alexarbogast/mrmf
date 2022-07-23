@@ -30,7 +30,6 @@ bool CompositeInterpolator::interpolate(robot_state::RobotState* start_state, ro
     std::vector<std::pair<Eigen::Isometry3d, Eigen::Isometry3d>> start_end_pose;
     std::vector<std::pair<Eigen::Quaterniond, Eigen::Quaterniond>> start_end_rot;
 
-    double max_translation = 0.0, max_rotation = 0.0;
     std::size_t steps = 0;
     for (std::size_t i = 0; i < n; i++)
     {
@@ -75,22 +74,14 @@ bool CompositeInterpolator::interpolate(robot_state::RobotState* start_state, ro
     traj.clear();
     traj.push_back(std::make_shared<robot_state::RobotState>(*start_state));
 
-    // perform joint interpolation first
+    // joint and cartesian interpolation at each step
     robot_state::RobotState current_state = *start_state;
     for (std::size_t i = 1; i <= steps; ++i)
     {
         double percentage = (double)i / (double)steps;
         start_state->interpolate(*end_state, percentage, current_state);
 
-        traj.push_back(std::make_shared<robot_state::RobotState>(current_state));
-    }
-
-    // now replace joint values with IK solution for robots with linear movements
-    for (std::size_t i = 1; i<= steps; ++i)
-    {
-        double percentage = (double)i / (double)steps;
-        auto& state = traj[i];
-        
+        // replace joint values with IK solution for robots with linear movements
         for (std::size_t j = 0; j < lin_move_ind.size(); j++)
         {
             const auto& se_pose = start_end_pose[j];
@@ -104,15 +95,17 @@ bool CompositeInterpolator::interpolate(robot_state::RobotState* start_state, ro
             if (coordinated_indices[lin_move_ind[j]] > 0)
             {
                 std::string coord_tip_frame = robots[coordinated_indices[lin_move_ind[j]]]->getTipFrame();
-                Eigen::Isometry3d T_world_pos = state->getGlobalLinkTransform(coord_tip_frame);
+                Eigen::Isometry3d T_world_pos = current_state.getGlobalLinkTransform(coord_tip_frame);
 
                 pose = T_world_pos * pose;
             }
 
             auto& robot = robots[lin_move_ind[j]];
-            if (!state->setFromIK(robot->getJointModelGroup(), pose, robot->getTipFrame(), 0.0))
+            if (!current_state.setFromIK(robot->getJointModelGroup(), pose, robot->getTipFrame(), 0.0))
                 return false;   
         }
+
+        traj.push_back(std::make_shared<robot_state::RobotState>(current_state));
     }
 
     return true;
