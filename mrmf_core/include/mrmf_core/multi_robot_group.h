@@ -48,10 +48,10 @@ private:
     std::string group_;
     std::string home_position_name_ = "home";
 
-    std::unordered_map<uint64_t, RobotPtr> robots_;
+    std::unordered_map<RobotID, RobotPtr> robots_;
 
-    moveit::core::RobotModelConstPtr robot_model_;
-    const moveit::core::JointModelGroup* joint_model_group_;
+    robot_model::RobotModelConstPtr robot_model_;
+    const robot_model::JointModelGroup* joint_model_group_;
 };
 
 } // namespace mrmf_core

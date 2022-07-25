@@ -116,4 +116,15 @@ typedef RobotID_<uint64_t> RobotID;
 
 } // namespace mrmf_core
 
+
+// inject custom std::hash specialization
+template <typename T>
+struct std::hash<mrmf_core::RobotID_<T>>
+{
+	std::size_t operator()(mrmf_core::RobotID_<T> const& id) const noexcept
+	{
+		return std::hash<T>{}(id.value());
+	}
+};
+
 #endif // MRMF_UNIQUE_ID_H
