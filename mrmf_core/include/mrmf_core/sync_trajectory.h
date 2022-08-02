@@ -26,6 +26,7 @@ public:
     SyncPointInfo getSyncPointInfo(size_t index) const;
     std::vector<RobotID> getRobotIDs() const;
     std::vector<RobotID> getPositionerIDs() const;
+    std::vector<RobotID> getAllUniqueIDs() const;
 
     std::string toString() const;
 

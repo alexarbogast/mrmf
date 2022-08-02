@@ -35,6 +35,8 @@ add_library(${PROJECT_NAME}
     src/cartesian_trajectory.cpp
     src/sync_trajectory.cpp
     src/composite_interpolator.cpp
+    src/sync_trajectory_planner.cpp
+    src/positioner_opt.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Eigen3::Eigen ${catkin_LIBRARIES})

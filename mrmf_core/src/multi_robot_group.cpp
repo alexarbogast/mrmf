@@ -1,4 +1,6 @@
 #include <mrmf_core/multi_robot_group.h>
+#include <mrmf_core/sync_trajectory_planner.h>
+
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
 namespace mrmf_core
@@ -112,6 +114,19 @@ bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj,
     }
 
     return true;
+}
+
+bool MultiRobotGroup::planMultiRobotTrajectory2(SynchronousTrajectory& traj, 
+                                                robot_trajectory::RobotTrajectory& output_traj,
+                                                robot_state::RobotState& seed_state)
+{
+    SyncTrajectoryPlanner planner;
+    planner.initialize(this->robots_);
+
+    moveit::core::MaxEEFStep max_step(0.001);
+
+    bool success = planner.plan(traj, output_traj, seed_state, max_step);
+    return success;
 }
 
 bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, robot_state::RobotState& seed_state)

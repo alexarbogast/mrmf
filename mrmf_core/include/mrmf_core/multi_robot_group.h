@@ -34,6 +34,10 @@ public:
                                   robot_trajectory::RobotTrajectory& output_traj,
                                   robot_state::RobotState& seed_state);
 
+    bool planMultiRobotTrajectory2(SynchronousTrajectory& traj, 
+                                   robot_trajectory::RobotTrajectory& output_traj,
+                                   robot_state::RobotState& seed_state);
+
     bool kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state);
 
 private:

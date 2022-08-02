@@ -91,19 +91,36 @@ SyncPointInfo SynchronousTrajectory::getSyncPointInfo(size_t index) const
 
 std::vector<RobotID> SynchronousTrajectory::getRobotIDs() const
 {
-    std::vector<RobotID> ids;
+    // remove duplicate if there is more than one trajectory for a robot
+    std::set<RobotID> ids_set;
     for (const auto& traj : sync_trajs_)
-        ids.push_back(traj->getRobot());
+        ids_set.insert(traj->getRobot());
 
+    std::vector<RobotID> ids(ids_set.begin(), ids_set.end());
     return ids;
 }
 
 std::vector<RobotID> SynchronousTrajectory::getPositionerIDs() const
 {
-    std::vector<RobotID> ids;
+    // remove duplicate if there is more than one trajectory for a robot
+    std::set<RobotID> ids_set;
     for (const auto& traj : sync_trajs_)
-        ids.push_back(traj->getPositioner());
+        ids_set.insert(traj->getPositioner());
 
+    std::vector<RobotID> ids(ids_set.begin(), ids_set.end());
+    return ids;
+}
+
+std::vector<RobotID> SynchronousTrajectory::getAllUniqueIDs() const
+{
+    std::set<RobotID> ids_set;
+    for (const auto& traj : sync_trajs_)
+    {
+        ids_set.insert(traj->getRobot());
+        ids_set.insert(traj->getPositioner());
+    }
+
+    std::vector<RobotID> ids(ids_set.begin(), ids_set.end());
     return ids;
 }
 
