@@ -6,7 +6,7 @@
 
 namespace mrmf_core
 {
-enum class InterpType { LINEAR, JOINT };
+enum class InterpType { JOINT, LINEAR };
 
 class CompositeInterpolator
 {

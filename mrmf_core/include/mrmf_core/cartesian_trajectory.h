@@ -1,7 +1,11 @@
 #ifndef MRMF_CORE_CART_TRAJECTORY_H
 #define MRMF_CORE_CART_TRAJECTORY_H
 
+#include <deque>
+#include <vector>
+
 #include <mrmf_core/waypoint.h>
+#include <mrmf_core/unique_id.h>
 
 namespace mrmf_core
 {

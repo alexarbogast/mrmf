@@ -13,14 +13,28 @@ namespace mrmf_core
 class SyncTrajectoryPlanner
 {
 public:
+    struct Config
+    {
+        Config() 
+        : max_step(0.001), max_velocity_scaling_factor(1.0)
+        {
+        }
+
+        moveit::core::MaxEEFStep max_step;
+        double max_velocity_scaling_factor;
+        // orientation_type
+        // positioner_optimization_type
+    };
+
     SyncTrajectoryPlanner() = default;
-    void initialize(const std::unordered_map<RobotID, RobotPtr>& id_map);
-    void reset();
+    void initialize(const std::unordered_map<RobotID, RobotPtr>& id_map, 
+                    const moveit::core::JointModelGroup* jmg);
+    void resetPlanData();
 
     bool plan(SynchronousTrajectory& traj,
               robot_trajectory::RobotTrajectory& output_traj,
               robot_state::RobotState& seed_state,
-              const moveit::core::MaxEEFStep max_step);
+              const Config& config);
 
 private:
     struct SyncState
@@ -43,16 +57,25 @@ private:
     
     bool planSyncStates(SynchronousTrajectory& traj,
                         robot_state::RobotState& seed_state,
-                        std::vector<SyncState>& sync_states);
+                        std::vector<SyncState>& sync_states,
+                        const Config& config) const;
 
     bool planSyncState(const SyncPointInfo& spi, SyncState& sync_state_out) const;
+    bool interpUnplannedStates(std::vector<SyncState>& sync_states, 
+                               robot_state::RobotState& seed_state,
+                               const Config& config) const;
 
     double positionerOptimization(const SyncPointInfo& spi,
                                   const RobotID& positioner,
                                   robot_state::RobotState& seed_state) const;
 
+    double computeMinMoveTime(const robot_state::RobotState& start,
+                              const robot_state::RobotState& end,
+                              const moveit::core::JointModelGroup* group) const;
+
 private:
     std::unordered_map<RobotID, RobotPtr> id_map_;
+    const moveit::core::JointModelGroup* jmg_;
 
     // per plan data
     std::size_t n_sync_points_;

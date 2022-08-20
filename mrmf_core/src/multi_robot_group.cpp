@@ -30,6 +30,7 @@ RobotID MultiRobotGroup::addRobot(const std::string& group,
     if (!jmg) return RobotID::make_nil();
     if (!jmg->hasLinkModel(tip_frame) || !robot_model_->hasLinkModel(base_frame))
     {
+        ROS_ERROR("Could not find tip_frame or base_frame in robot model");
         ROS_ERROR("Failed to add robot to MultiRobotGroup");
         return RobotID::make_nil();
     }
@@ -57,170 +58,18 @@ const robot_model::JointModelGroup* MultiRobotGroup::getJointModelGroup(const Ro
     return getRobot(id)->getJointModelGroup();
 }
 
-
 bool MultiRobotGroup::planMultiRobotTrajectory(SynchronousTrajectory& traj, 
                                                robot_trajectory::RobotTrajectory& output_traj,
-                                               moveit::core::RobotState& seed_state)
-{
-    robot_state::RobotState current_state = seed_state;
-    size_t n = traj.size();
-
-    output_traj.addSuffixWayPoint(current_state, 0);
-
-    double prev_time = -2.0;
-    for (size_t i = 0; i < n; i++)
-    {
-        SyncPointInfo spi = traj.getSyncPointInfo(i);
-        KinematicsQueryContext context;
-
-        // solver for coordinated robots first using unique positioner ids
-        std::set<RobotID> unique_pos(spi.positioners.begin(), spi.positioners.end());
-
-        for (auto& p : unique_pos)
-        {
-            if (!p.is_nil())
-            {
-                auto jmg = getJointModelGroup(p);
-            
-                // Solve the positioner optimization problem
-                double pos_value = positionerOptimization(spi, p, current_state);
-                current_state.setJointGroupPositions(jmg, {pos_value});
-            }
-        }
-
-        current_state.update();
-        // describe waypoints as constraints and solve IK
-        for (int j = 0; j < spi.nPoints(); j++)
-        {
-            auto p = spi.positioners[j];
-            if (!p.is_nil())
-            {
-                auto& T_world_pos = current_state.getFrameTransform(getRobot(p)->getTipFrame());
-                spi.waypoints[j]->getPose() = T_world_pos * spi.waypoints[j]->getPose();
-            }
-            context.current_robot = getRobot(spi.robots[j]);
-            spi.waypoints[j]->describe(context);
-        }
-        addGlobalConstraints(context);
-
-        bool success = kinematicsQuery(context, current_state);
-
-        if (success)
-            output_traj.addSuffixWayPoint(current_state, spi.time - prev_time);
-        else
-            return false;
-
-        prev_time = spi.time;
-    }
-
-    return true;
-}
-
-bool MultiRobotGroup::planMultiRobotTrajectory2(SynchronousTrajectory& traj, 
-                                                robot_trajectory::RobotTrajectory& output_traj,
-                                                robot_state::RobotState& seed_state)
+                                               robot_state::RobotState& seed_state)
 {
     SyncTrajectoryPlanner planner;
-    planner.initialize(this->robots_);
+    planner.initialize(this->robots_, this->joint_model_group_);
 
-    moveit::core::MaxEEFStep max_step(0.001);
+    SyncTrajectoryPlanner::Config config;
+    config.max_velocity_scaling_factor = 0.5;
 
-    bool success = planner.plan(traj, output_traj, seed_state, max_step);
+    bool success = planner.plan(traj, output_traj, seed_state, config);
     return success;
-}
-
-bool MultiRobotGroup::kinematicsQuery(KinematicsQueryContext& context, robot_state::RobotState& seed_state)
-{
-    bool success = seed_state.setFromIK(
-        joint_model_group_,              // joints to be used for IK
-        EigenSTL::vector_Isometry3d(),  // empty end_effector positions
-        std::vector<std::string>(),     // empty tip link names
-        0.05,                          // solver timeout
-        moveit::core::GroupStateValidityCallbackFn(),
-        context.ik_options                      // ik constraints
-    );
-
-    return success;
-}
-
-void MultiRobotGroup::addGlobalConstraints(KinematicsQueryContext& context)
-{
-    auto* minimal_displacement = new bio_ik::MinimalDisplacementGoal();
-    context.ik_options.goals.emplace_back(minimal_displacement);
-
-    context.ik_options.replace = true;
-    context.ik_options.return_approximate_solution = true;
-}
-
-
-/* Use the positioner to minimize the 2D distance between each
- * robot end effector and the robot base 
- * 
- * for now we will assume there is only one positioner
- */
-double MultiRobotGroup::positionerOptimization(const SyncPointInfo& spi,
-                                               const RobotID& positioner,
-                                               robot_state::RobotState& seed_state) const
-{
-    EigenSTL::vector_Vector3d interest_points;
-    EigenSTL::vector_Vector3d base_positions;
-
-    // update frame transformations in seed state
-    seed_state.update();
-
-    for (int i = 0; i < spi.nPoints(); i++)
-    {
-        if (spi.positioners[i] == positioner)
-        {
-            interest_points.push_back(spi.waypoints[i]->translation());
-            
-            const std::string& base_name = getRobot(spi.robots[i])->getBaseFrame();
-            base_positions.push_back(seed_state.getFrameTransform(base_name).translation());
-        }
-    }
-
-    // create objective function
-    auto objective = [interest_points, base_positions](double theta)
-    {
-        double cost = 0.0;
-
-        Eigen::Rotation2Dd rot2(theta);
-        for (int i = 0; i < interest_points.size(); i++)
-        {
-            Eigen::Vector2d pt2 = interest_points[i].head<2>();
-            cost += ((rot2 * pt2) - base_positions[i].head<2>()).norm();
-        }
-        return cost;
-    };
-
-    auto gradient = [objective](double x_old, double step)
-    {
-        double x_new = x_old + step;  
-        return (objective(x_new) - objective(x_old)) / step;
-    };
-
-    // gradient descent
-    static unsigned int max_iter = 1000;
-    static double tol = 1e-5, step_size = 0.1, gradient_step = 0.00001;
-
-    unsigned int iter_count = 0;
-    double gradientMagnitude = 1.0;
-
-    double xk = seed_state.getVariablePosition(0);
-    while ((iter_count < max_iter) && (gradientMagnitude > tol))
-    {
-        double gr = gradient(xk, gradient_step);
-        gradientMagnitude = sqrt(gr * gr);
-        xk += -(gr * step_size);
-
-        iter_count++;
-    }
-
-    // std::cout << "Iterations: " << iter_count << std::endl;
-    // std::cout << "Gradient mag: " << gradientMagnitude << std::endl;
-    // std::cout << "Sol: " << xk << std::endl << std::endl;
-
-    return xk;
 }
 
 } // namespace mrmf_core

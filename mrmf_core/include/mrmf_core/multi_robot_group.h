@@ -1,6 +1,7 @@
 #ifndef MRMF_CORE_MULTI_ROBOT_GROUP_H
 #define MRMF_CORE_MULTI_ROBOT_GROUP_H
 
+#include <unordered_map>
 #include <moveit/robot_trajectory/robot_trajectory.h>
 
 #include <mrmf_core/robot.h>
@@ -33,20 +34,6 @@ public:
     bool planMultiRobotTrajectory(SynchronousTrajectory& traj, 
                                   robot_trajectory::RobotTrajectory& output_traj,
                                   robot_state::RobotState& seed_state);
-
-    bool planMultiRobotTrajectory2(SynchronousTrajectory& traj, 
-                                   robot_trajectory::RobotTrajectory& output_traj,
-                                   robot_state::RobotState& seed_state);
-
-    bool kinematicsQuery(KinematicsQueryContext& context, moveit::core::RobotState& seed_state);
-
-private:
-    void addGlobalConstraints(KinematicsQueryContext& context);
-    
-    // temp
-    double positionerOptimization(const SyncPointInfo& spi,
-                                  const RobotID& positioner,
-                                  robot_state::RobotState& seed_state) const;
 
 private:
     std::string group_;

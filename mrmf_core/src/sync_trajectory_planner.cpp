@@ -3,44 +3,50 @@
 
 namespace mrmf_core
 {
-void SyncTrajectoryPlanner::initialize(const std::unordered_map<RobotID, RobotPtr>& id_map)
+void SyncTrajectoryPlanner::initialize(const std::unordered_map<RobotID, RobotPtr>& id_map,
+                                       const moveit::core::JointModelGroup* jmg)
 {
     id_map_ = id_map;
+    jmg_ = jmg;
 }
 
-void SyncTrajectoryPlanner::reset()
+void SyncTrajectoryPlanner::resetPlanData()
 {
+    // these member variables are for ease of access between member functions
     this->n_sync_points_ = 0;
     this->unique_ids_.clear();
 }
 
 bool SyncTrajectoryPlanner::plan(SynchronousTrajectory& traj,
-                                  robot_trajectory::RobotTrajectory& output_traj,
-                                  robot_state::RobotState& seed_state,
-                                  const moveit::core::MaxEEFStep max_step)
+                                 robot_trajectory::RobotTrajectory& output_traj,
+                                 robot_state::RobotState& seed_state,
+                                 const Config& config)
 {
-    this->reset();
+    this->resetPlanData();
     n_sync_points_ = traj.size();
     unique_ids_ = traj.getAllUniqueIDs();
 
     // find the robot states at each synchronized point
     std::vector<SyncState> sync_states;
-    if (!planSyncStates(traj, seed_state, sync_states))
+    if (!planSyncStates(traj, seed_state, sync_states, config))
     {
-        ROS_ERROR("Failed to plan sync state");
+        ROS_ERROR("Failed to plan sync states");
         return false;
     }
- 
+
     // find robot ptrs for each unique robot in the trajectory
     std::vector<RobotPtr> robots;
     for (auto& bot_id : unique_ids_)
         robots.push_back(id_map_.at(bot_id));
 
-    // perform composite interpolation between each sync point
+    // add seed state and first sync point to output trajectory
     output_traj.clear();
-    output_traj.addSuffixWayPoint(seed_state, 0);           // start joint state
-    output_traj.addSuffixWayPoint(sync_states[0].state, 3); // first sync point 
+    output_traj.addSuffixWayPoint(seed_state, 0);
+    double first_move_time = computeMinMoveTime(seed_state, sync_states[0].state, jmg_) / 
+        config.max_velocity_scaling_factor;
+    output_traj.addSuffixWayPoint(sync_states[0].state, first_move_time);
 
+    // perform composite interpolation between each sync point
     for (std::size_t i = 1; i < sync_states.size(); i++)
     {
         auto& start_state = sync_states[i - 1];
@@ -48,11 +54,11 @@ bool SyncTrajectoryPlanner::plan(SynchronousTrajectory& traj,
 
         std::vector<robot_state::RobotStatePtr> robot_states;
         bool success = CompositeInterpolator::interpolate(&start_state.state, &end_state.state, 
-                            robots, end_state.interp_types, end_state.coordinated_indices, max_step, robot_states);
+                        robots, end_state.interp_types, end_state.coordinated_indices, config.max_step, robot_states);
 
         if (!success)
         {
-            ROS_ERROR("Failed during composite interpolation");
+            ROS_ERROR_STREAM("Failed during composite interpolation between sync_states: " << i - 1 << " and " << i);
             return false;
         }
 
@@ -69,7 +75,8 @@ bool SyncTrajectoryPlanner::plan(SynchronousTrajectory& traj,
 
 bool SyncTrajectoryPlanner::planSyncStates(SynchronousTrajectory& traj,
                                            robot_state::RobotState& seed_state,
-                                           std::vector<SyncState>& sync_states)
+                                           std::vector<SyncState>& sync_states,
+                                           const Config& config) const
 {
     robot_state::RobotState current_state = seed_state;
     for (std::size_t i = 0; i < n_sync_points_; i++)
@@ -78,13 +85,16 @@ bool SyncTrajectoryPlanner::planSyncStates(SynchronousTrajectory& traj,
         SyncState sync_state(unique_ids_.size(), current_state);
         
         if (!planSyncState(spi, sync_state))
+        {
+            ROS_ERROR_STREAM("Failed to plan sync state at index: " << i);
             return false;
+        }
 
         sync_states.push_back(sync_state);
         current_state = sync_state.state;
     }
 
-    // TODO: interpolate joint movement that have not been planned
+    interpUnplannedStates(sync_states, seed_state, config);
     return true;
 }
 
@@ -106,6 +116,9 @@ bool SyncTrajectoryPlanner::planSyncState(const SyncPointInfo& spi, SyncState& s
 
             double pos_value = positionerOptimization(spi, p, current_state);
             current_state.setJointGroupPositions(jmg, {pos_value});
+
+            int pos_idx = std::distance(unique_ids_.begin(), std::find(unique_ids_.begin(), unique_ids_.end(), p));
+            sync_state_out.planned_flags[pos_idx] = true;
         }
     }
 
@@ -128,13 +141,11 @@ bool SyncTrajectoryPlanner::planSyncState(const SyncPointInfo& spi, SyncState& s
             auto& T_world_pos = current_state.getFrameTransform(id_map_.at(p)->getTipFrame());
             spi.waypoints[i]->getPose() = T_world_pos * spi.waypoints[i]->getPose();
 
-            auto pos_it = std::find(unique_ids_.begin(), unique_ids_.end(), p);
-            int pos_id = std::distance(unique_ids_.begin(), pos_it);
-            sync_state_out.coordinated_indices[robot_idx] = pos_id;
+            int pos_idx = std::distance(unique_ids_.begin(), std::find(unique_ids_.begin(), unique_ids_.end(), p));
+            sync_state_out.coordinated_indices[robot_idx] = pos_idx;
         }
 
         // solve ik
-        //auto& current_robot = id_map_.at(spi.robots[i]);
         auto& robot_ptr = id_map_.at(robot);
         bool success = current_state.setFromIK(robot_ptr->getJointModelGroup(), 
                                                spi.waypoints[i]->getPose(),
@@ -143,6 +154,80 @@ bool SyncTrajectoryPlanner::planSyncState(const SyncPointInfo& spi, SyncState& s
 
         if (!success)
             return false;
+    }
+
+    return true;
+}
+
+/*
+ * Interpolate any states with false planned_flags for a synchronous trajectory
+ * these are typically joint movements to and from cartesian paths
+ */
+bool SyncTrajectoryPlanner::interpUnplannedStates(std::vector<SyncState>& sync_states, 
+                                                  robot_state::RobotState& seed_state,
+                                                  const Config& config) const
+{
+    for (std::size_t i = 0; i < unique_ids_.size(); i++)
+    {
+        auto& robot_ptr = id_map_.at(unique_ids_[i]);
+        for (std::size_t j = 0; j < n_sync_points_; j++)
+        {
+            auto& sync_state = sync_states[j];
+            if (!sync_state.planned_flags[i])
+            {
+                auto sync_state_start_it = std::next(sync_states.begin(), j);
+                auto sync_state_end_it = sync_state_start_it;
+
+                // find the next state that is planned for this id
+                for (; sync_state_end_it != sync_states.end(); ++sync_state_end_it)
+                    if ((*sync_state_end_it).planned_flags[i])
+                        break;
+
+                if (sync_state_start_it == sync_states.begin())  // travel move from seed to cartesian start
+                {
+                    double min_move_time = computeMinMoveTime(sync_state_end_it->state, seed_state,
+                        robot_ptr->getJointModelGroup()) / config.max_velocity_scaling_factor;
+                    
+                    auto sync_state_end_rit = std::make_reverse_iterator(sync_state_end_it);
+                    const auto& front_planned = std::prev(sync_state_end_rit);
+                    front_planned->coordinated_indices[i] = -1;
+                    front_planned->interp_types[i] = InterpType::JOINT;
+
+                    for (; sync_state_end_rit != sync_states.rend(); ++sync_state_end_rit)
+                    {
+                        double perc = (front_planned->time - sync_state_end_rit->time) / min_move_time;
+                        perc = perc < 1 ? perc : 1;
+
+                        front_planned->state.interpolate(seed_state, perc, sync_state_end_rit->state, 
+                            robot_ptr->getJointModelGroup());
+
+                        sync_state_end_rit->planned_flags[i] = true;
+                    }
+                }
+                else if (sync_state_end_it == sync_states.end()) // travel move from cartesian end to seed
+                {
+                    const auto& back_planned = std::prev(sync_state_start_it);
+
+                    double min_move_time = computeMinMoveTime(back_planned->state, seed_state,
+                        robot_ptr->getJointModelGroup()) / config.max_velocity_scaling_factor;
+
+                    for (; sync_state_start_it != sync_states.end(); ++sync_state_start_it)
+                    {
+                        double perc = (sync_state_start_it->time - back_planned->time) / min_move_time;
+                        perc = perc < 1 ? perc : 1;
+
+                        back_planned->state.interpolate(seed_state, perc, sync_state_start_it->state,
+                            robot_ptr->getJointModelGroup());
+
+                        sync_state_start_it->planned_flags[i] = true;
+                    }
+                }
+                else // intermediate travel
+                {
+
+                }
+            }
+        }
     }
 
     return true;
@@ -175,6 +260,36 @@ double SyncTrajectoryPlanner::positionerOptimization(const SyncPointInfo& spi,
     }
 
     return positionerOptDist2D(interest_points, base_positions, seed_state.getVariablePosition(0));
+}
+
+/* 
+ * Get the minimum move time between the start and end state that does not exceed the maximum
+ * velocity threshold of the joint model group
+ */
+double SyncTrajectoryPlanner::computeMinMoveTime(const robot_state::RobotState& start, 
+                                                 const robot_state::RobotState& end,
+                                                 const moveit::core::JointModelGroup* group) const
+{
+    using namespace moveit::core;
+    double min_time = 0.0;
+
+    const std::vector<const JointModel*>& jm = group->getActiveJointModels();
+    for (const JointModel* joint_id : jm)
+    {
+        const int idx = joint_id->getFirstVariableIndex();
+        const std::vector<VariableBounds>& bounds = joint_id->getVariableBounds();
+
+        const double* start_position = start.getVariablePositions();
+        const double* end_position = end.getVariablePositions();
+
+        for (std::size_t var_id = 0; var_id < joint_id->getVariableCount(); ++var_id)
+        {
+            const double dtheta = std::abs(*(start_position + idx + var_id) - *(end_position + idx + var_id));
+            min_time = std::fmax(min_time, dtheta / bounds[var_id].max_velocity_);
+        }
+    }
+
+    return min_time;
 }
 
 } // namespace mrmf_core

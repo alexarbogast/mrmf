@@ -1,6 +1,7 @@
 #ifndef MRMF_CORE_SYNC_TRAJECTORY_H
 #define MRMF_CORE_SYNC_TRAJECTORY_H
 
+#include <set>
 #include <mrmf_core/cartesian_trajectory.h>
 
 namespace mrmf_core

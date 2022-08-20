@@ -32,6 +32,9 @@ public:
     inline const Robot::RobotType& getType() const { return type_; }
     inline void setType(const Robot::RobotType& type) { type_ = type; }
 
+    double getMaxVariableVelocity() const;
+    double getMinVariableVelocity() const; 
+
     const RobotID& getID() const { return id_; }
 
 protected:

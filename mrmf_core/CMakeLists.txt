@@ -5,7 +5,6 @@ find_package(catkin REQUIRED COMPONENTS
     moveit_core
     moveit_ros_planning
     moveit_ros_planning_interface
-    bio_ik
     ifopt
 )
 find_package(Eigen3 REQUIRED)
@@ -17,7 +16,6 @@ catkin_package(
         moveit_core
         moveit_ros_planning
         moveit_ros_planning_interface
-        bio_ik
 )
 
 include_directories( 
@@ -27,7 +25,6 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME} 
-    src/goal_types.cpp
     src/unique_id.cpp
     src/robot.cpp
     src/multi_robot_group.cpp
