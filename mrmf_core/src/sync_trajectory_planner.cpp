@@ -70,6 +70,10 @@ bool SyncTrajectoryPlanner::plan(SynchronousTrajectory& traj,
         }
     }
 
+    double last_move_time = computeMinMoveTime(sync_states.back().state, seed_state, jmg_) /
+        config.max_velocity_scaling_factor;
+    output_traj.addSuffixWayPoint(seed_state, last_move_time);
+
     return true;
 }
 
@@ -224,7 +228,27 @@ bool SyncTrajectoryPlanner::interpUnplannedStates(std::vector<SyncState>& sync_s
                 }
                 else // intermediate travel
                 {
+                    const auto& back_planned = std::prev(sync_state_start_it);
+                    double dt = sync_state_end_it->time - back_planned->time;
 
+                    Eigen::Isometry3d start_pose = back_planned->state.getGlobalLinkTransform(robot_ptr->getTipFrame());
+                    Eigen::Isometry3d end_pose = sync_state_end_it->state.getGlobalLinkTransform(robot_ptr->getTipFrame());
+
+                    Eigen::Quaterniond start_quaternion(start_pose.linear());
+                    Eigen::Quaterniond end_quaternion(end_pose.linear());
+
+                    for (; sync_state_start_it != sync_state_end_it; ++sync_state_start_it)
+                    {
+                        double perc = (sync_state_start_it->time - back_planned->time) / dt;
+                        perc = perc < 1 ? perc : 1;
+
+                        Eigen::Isometry3d pose(start_quaternion.slerp(perc, end_quaternion));
+                        pose.translation() = perc * end_pose.translation() + (1 - perc) * start_pose.translation();
+
+                        sync_state_start_it->state.setFromIK(robot_ptr->getJointModelGroup(), pose, robot_ptr->getTipFrame(), 0.0);
+                        sync_state_start_it->planned_flags[i] = true;
+                        sync_state_start_it->interp_types[i] = InterpType::LINEAR;
+                    }
                 }
             }
         }

@@ -15,6 +15,9 @@ class SyncTrajectoryPlanner
 public:
     struct Config
     {
+        enum class PositionerOptType { NONE, MIN_BASE_DIST };
+        enum class PoseOrientType { DEFAULT, STATIC };
+
         Config() 
         : max_step(0.001), max_velocity_scaling_factor(1.0)
         {
@@ -22,8 +25,8 @@ public:
 
         moveit::core::MaxEEFStep max_step;
         double max_velocity_scaling_factor;
-        // orientation_type
-        // positioner_optimization_type
+        PositionerOptType positioner_optimization_type;
+        PoseOrientType pose_orient_type;
     };
 
     SyncTrajectoryPlanner() = default;
